@@ -1,8 +1,21 @@
 import type { Bond } from "./bonds";
 import { parseBondRow } from "./bonds";
 
-const SHEET_ID = process.env.SHEET_ID ?? "10t4biyDJzNzo6s3_fU-_2HLHviVGyetz8Ab9U6Y3MY0";
-const SHEET_GID = process.env.SHEET_GID ?? "0";
+const DEFAULT_SHEET_ID = "10t4biyDJzNzo6s3_fU-_2HLHviVGyetz8Ab9U6Y3MY0";
+
+/** Accepts a bare sheet ID or a full docs.google.com URL; tolerates stray quotes/whitespace. */
+function resolveSheet(rawId?: string, rawGid?: string) {
+  const clean = (v?: string) => (v ?? "").trim().replace(/^["']|["']$/g, "");
+  const id = clean(rawId);
+  const fromUrl = id.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]+)/);
+  const gidFromUrl = id.match(/[?#&]gid=(\d+)/);
+  return {
+    id: fromUrl?.[1] ?? (id || DEFAULT_SHEET_ID),
+    gid: clean(rawGid) || gidFromUrl?.[1] || "0",
+  };
+}
+
+const { id: SHEET_ID, gid: SHEET_GID } = resolveSheet(process.env.SHEET_ID, process.env.SHEET_GID);
 
 export const sheetUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=${SHEET_GID}`;
 const csvUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
@@ -32,7 +45,10 @@ export function parseCsv(text: string): string[][] {
 
 export async function fetchBonds(): Promise<Bond[]> {
   const res = await fetch(csvUrl, { next: { revalidate: 300 } });
-  if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    const hint = res.status === 404 ? ` (sheet ID "${SHEET_ID}" not found — check SHEET_ID)` : "";
+    throw new Error(`Sheet fetch failed: ${res.status} ${res.statusText}${hint}`);
+  }
   const [header, ...rows] = parseCsv(await res.text());
   const col = (name: string) =>
     header.findIndex((h) => h.trim().toLowerCase().startsWith(name.toLowerCase()));
