@@ -1,3 +1,6 @@
+import type { BBQuote } from "./bb";
+import { valueBond } from "./pricing";
+
 export interface Bond {
   title: string;
   isin: string;
@@ -5,14 +8,36 @@ export interface Bond {
   price: number;
   /** Annual coupon rate as a fraction, e.g. 0.122 */
   couponRate: number;
-  /** Current yield from the sheet (fraction) or, if blank, derived as coupon / price on par */
-  currentYield: number | null;
+  /** Current yield from the sheet (fraction), if filled in */
+  sheetYield: number | null;
   /** Tenor in years parsed from the title, e.g. "15Y" → 15 */
   tenorYears: number | null;
   maturity: Date | null;
 }
 
-const FACE_VALUE = 100_000; // BGTB face value per unit, BDT
+/** Live mark-to-market for a holding, from Bangladesh Bank */
+export interface LiveValuation {
+  marketYield: number;
+  /** Present value of the holding in BDT (all remaining cashflows discounted at market yield) */
+  presentValue: number;
+  /** presentValue − purchase price */
+  capitalGain: number;
+  /** Accrued coupon included in presentValue, BDT */
+  accrued: number;
+  /** BB's clean price per 100 face, for reference */
+  bbCleanPrice: number;
+}
+
+export interface PricedBond extends Bond {
+  live: LiveValuation | null;
+}
+
+export const FACE_VALUE = 100_000; // BGTB face value per unit, BDT
+
+/** Units held, assuming purchase price ≈ face value in 100k lots. */
+export function unitsHeld(b: Bond): number {
+  return Math.round(b.price / FACE_VALUE) || b.price / FACE_VALUE;
+}
 
 function parseNumber(s: string): number {
   const n = Number(s.replace(/[^0-9.\-]/g, ""));
@@ -50,9 +75,30 @@ export function parseBondRow(r: {
     isin: r.isin.trim(),
     price,
     couponRate,
-    currentYield: Number.isFinite(cy) ? cy : null,
+    sheetYield: Number.isFinite(cy) ? cy : null,
     ...parseTitle(r.title),
   };
+}
+
+/** Attach live BB valuation to each holding (null when BB has no quote for that ISIN). */
+export function priceBonds(bonds: Bond[], quotes: Map<string, BBQuote>, now = new Date()): PricedBond[] {
+  return bonds.map((b) => {
+    const q = quotes.get(b.isin);
+    const v = q ? valueBond(q, now) : null;
+    if (!q || !v) return { ...b, live: null };
+    const face = unitsHeld(b) * FACE_VALUE;
+    const presentValue = (face * v.dirtyPrice) / 100;
+    return {
+      ...b,
+      live: {
+        marketYield: q.marketYield,
+        presentValue,
+        capitalGain: presentValue - b.price,
+        accrued: (face * v.accrued) / 100,
+        bbCleanPrice: q.marketPrice,
+      },
+    };
+  });
 }
 
 export function yearsToMaturity(b: Bond, now = new Date()): number | null {
@@ -60,29 +106,37 @@ export function yearsToMaturity(b: Bond, now = new Date()): number | null {
   return (b.maturity.getTime() - now.getTime()) / (365.25 * 24 * 3600 * 1000);
 }
 
-/** Annual coupon income assuming price ≈ face value held (BGTBs are issued in 100k lots). */
 export function annualCoupon(b: Bond): number {
-  const units = Math.round(b.price / FACE_VALUE) || b.price / FACE_VALUE;
-  return units * FACE_VALUE * b.couponRate;
+  return unitsHeld(b) * FACE_VALUE * b.couponRate;
 }
 
-export function effectiveYield(b: Bond): number {
-  return b.currentYield ?? annualCoupon(b) / b.price;
+/** Yield to show: live market yield, else the sheet's figure, else coupon ÷ purchase price. */
+export function displayYield(b: PricedBond): { value: number; source: "live" | "sheet" | "derived" } {
+  if (b.live) return { value: b.live.marketYield, source: "live" };
+  if (b.sheetYield !== null) return { value: b.sheetYield, source: "sheet" };
+  return { value: annualCoupon(b) / b.price, source: "derived" };
 }
 
-export function summarize(bonds: Bond[]) {
+export function summarize(bonds: PricedBond[]) {
   const invested = bonds.reduce((s, b) => s + b.price, 0);
   const income = bonds.reduce((s, b) => s + annualCoupon(b), 0);
-  const weightedCoupon = invested ? bonds.reduce((s, b) => s + b.couponRate * b.price, 0) / invested : 0;
+  const priced = bonds.filter((b) => b.live !== null);
+  const presentValue = priced.reduce((s, b) => s + b.live!.presentValue, 0);
+  const capitalGain = priced.reduce((s, b) => s + b.live!.capitalGain, 0);
   const ytms = bonds.map((b) => yearsToMaturity(b)).filter((y): y is number => y !== null);
   const weightedYears = invested
     ? bonds.reduce((s, b) => s + (yearsToMaturity(b) ?? 0) * b.price, 0) / invested
     : 0;
-  return { invested, income, weightedCoupon, weightedYears, count: bonds.length, longest: ytms.length ? Math.max(...ytms) : null };
+  return {
+    invested, income, presentValue, capitalGain, weightedYears,
+    count: bonds.length, pricedCount: priced.length,
+    longest: ytms.length ? Math.max(...ytms) : null,
+  };
 }
 
 export const fmtBDT = (n: number) =>
   new Intl.NumberFormat("en-BD", { style: "currency", currency: "BDT", maximumFractionDigits: 0 }).format(n);
+export const fmtSigned = (n: number) => (n >= 0 ? "+" : "−") + fmtBDT(Math.abs(n));
 export const fmtPct = (n: number, d = 2) => `${(n * 100).toFixed(d)}%`;
 export const fmtDate = (d: Date) =>
   d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });

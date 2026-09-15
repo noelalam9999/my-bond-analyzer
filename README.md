@@ -19,4 +19,8 @@ npm install
 npm run dev
 ```
 
-Data is fetched server-side via the sheet's CSV export and cached for 5 minutes.
+Holdings are fetched server-side via the sheet's CSV export (cached 5 min). Live market
+yields come from Bangladesh Bank's GSOM T-bond page (<https://gsom.bb.org.bd/index.php/tbond>),
+fetched on every page load. Each holding is priced by discounting its remaining semi-annual
+coupons and principal at that yield (matches BB's published clean prices); present value
+includes accrued coupon, and capital gain = present value − purchase price.
