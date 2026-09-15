@@ -133,6 +133,55 @@ export function timeHeld(b: Bond, now = new Date()): string | null {
   return [y ? `${y} yr` : "", m ? `${m} mo` : ""].filter(Boolean).join(" ");
 }
 
+export function daysHeld(b: Bond, now = new Date()): number | null {
+  if (!b.purchaseDate) return null;
+  return Math.max(0, Math.floor((now.getTime() - b.purchaseDate.getTime()) / 86_400_000));
+}
+
+/** Flat, JSON-serialisable view of a holding for client components. */
+export interface BondRow {
+  title: string;
+  isin: string;
+  purchaseDate: string | null;
+  timeHeld: string | null;
+  daysHeld: number | null;
+  price: number;
+  couponRate: number;
+  yieldValue: number;
+  yieldSource: "live" | "sheet" | "derived";
+  presentValue: number | null;
+  capitalGain: number | null;
+  gainPct: number | null;
+  accrued: number | null;
+  bbCleanPrice: number | null;
+  annualIncome: number;
+  maturity: string | null;
+  yearsLeft: number | null;
+}
+
+export function toRow(b: PricedBond, now = new Date()): BondRow {
+  const y = displayYield(b);
+  return {
+    title: b.title,
+    isin: b.isin,
+    purchaseDate: b.purchaseDate ? fmtDate(b.purchaseDate) : null,
+    timeHeld: timeHeld(b, now),
+    daysHeld: daysHeld(b, now),
+    price: b.price,
+    couponRate: b.couponRate,
+    yieldValue: y.value,
+    yieldSource: y.source,
+    presentValue: b.live?.presentValue ?? null,
+    capitalGain: b.live?.capitalGain ?? null,
+    gainPct: b.live ? b.live.capitalGain / b.price : null,
+    accrued: b.live?.accrued ?? null,
+    bbCleanPrice: b.live?.bbCleanPrice ?? null,
+    annualIncome: annualCoupon(b),
+    maturity: b.maturity ? fmtDate(b.maturity) : null,
+    yearsLeft: yearsToMaturity(b, now),
+  };
+}
+
 export function annualCoupon(b: Bond): number {
   return unitsHeld(b) * FACE_VALUE * b.couponRate;
 }
@@ -150,15 +199,7 @@ export function summarize(bonds: PricedBond[]) {
   const priced = bonds.filter((b) => b.live !== null);
   const presentValue = priced.reduce((s, b) => s + b.live!.presentValue, 0);
   const capitalGain = priced.reduce((s, b) => s + b.live!.capitalGain, 0);
-  const ytms = bonds.map((b) => yearsToMaturity(b)).filter((y): y is number => y !== null);
-  const weightedYears = invested
-    ? bonds.reduce((s, b) => s + (yearsToMaturity(b) ?? 0) * b.price, 0) / invested
-    : 0;
-  return {
-    invested, income, presentValue, capitalGain, weightedYears,
-    count: bonds.length, pricedCount: priced.length,
-    longest: ytms.length ? Math.max(...ytms) : null,
-  };
+  return { invested, income, presentValue, capitalGain, count: bonds.length, pricedCount: priced.length };
 }
 
 /** Plain grouped integer, e.g. 1,080,187 — all amounts are BDT. */

@@ -1,11 +1,41 @@
-import {
-  annualCoupon, displayYield, fmtBDT, fmtDate, fmtPct, fmtSigned, timeHeld, yearsToMaturity, type PricedBond,
-} from "@/lib/bonds";
+import { fmtBDT, fmtPct, fmtSigned, type BondRow } from "@/lib/bonds";
 
-const gainClass = (n: number) =>
+export const gainClass = (n: number) =>
   n > 0 ? "text-emerald-600 dark:text-emerald-400" : n < 0 ? "text-red-600 dark:text-red-400" : "";
 
-export function BondTable({ bonds }: { bonds: PricedBond[] }) {
+export function YieldCell({ r }: { r: BondRow }) {
+  return (
+    <>
+      {fmtPct(r.yieldValue)}
+      {r.yieldSource === "live" && (
+        <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" title="Live market yield from Bangladesh Bank" />
+      )}
+      {r.yieldSource === "derived" && <span className="ml-1 text-zinc-400" title="Derived: annual coupon ÷ purchase price">*</span>}
+    </>
+  );
+}
+
+export function GainCell({ r }: { r: BondRow }) {
+  if (r.capitalGain === null || r.gainPct === null) return <span className="text-zinc-400">—</span>;
+  return (
+    <span className={gainClass(r.capitalGain)}>
+      {fmtSigned(r.capitalGain)}
+      <span className="mx-1.5 text-zinc-300 dark:text-zinc-700">|</span>
+      {fmtPct(r.gainPct, 0)}
+    </span>
+  );
+}
+
+export function PVCell({ r }: { r: BondRow }) {
+  if (r.presentValue === null) return <span className="text-zinc-400" title="No live quote for this ISIN">—</span>;
+  return (
+    <span title={`BB clean price ${r.bbCleanPrice?.toFixed(4)} · includes accrued coupon ${fmtBDT(r.accrued ?? 0)}`}>
+      {fmtBDT(r.presentValue)}
+    </span>
+  );
+}
+
+export function BondTable({ rows }: { rows: BondRow[] }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
       <table className="min-w-full text-sm">
@@ -25,47 +55,24 @@ export function BondTable({ bonds }: { bonds: PricedBond[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          {bonds.map((b) => {
-            const ytm = yearsToMaturity(b);
-            const y = displayYield(b);
-            return (
-              <tr key={b.isin || b.title} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
-                <td className="whitespace-nowrap px-4 py-3 font-medium">{b.title}</td>
-                <td className="px-4 py-3 font-mono text-xs text-zinc-500">{b.isin}</td>
-                <td className="whitespace-nowrap px-4 py-3">{b.purchaseDate ? fmtDate(b.purchaseDate) : "—"}</td>
-                <td className="whitespace-nowrap px-4 py-3">{timeHeld(b) ?? "—"}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(b.price)}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{fmtPct(b.couponRate)}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
-                  {fmtPct(y.value)}
-                  {y.source === "live" && (
-                    <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" title="Live market yield from Bangladesh Bank" />
-                  )}
-                  {y.source === "derived" && <span className="ml-1 text-zinc-400" title="Derived: annual coupon ÷ purchase price">*</span>}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {b.live ? (
-                    <span title={`BB clean price ${b.live.bbCleanPrice.toFixed(4)} · includes accrued coupon ${fmtBDT(b.live.accrued)}`}>
-                      {fmtBDT(b.live.presentValue)}
-                    </span>
-                  ) : (
-                    <span className="text-zinc-400" title="No live quote for this ISIN">—</span>
-                  )}
-                </td>
-                <td className={`whitespace-nowrap px-4 py-3 text-right tabular-nums ${b.live ? gainClass(b.live.capitalGain) : "text-zinc-400"}`}>
-                  {b.live ? (
-                    <>
-                      {fmtSigned(b.live.capitalGain)}
-                      <span className="mx-1.5 text-zinc-300 dark:text-zinc-700">|</span>
-                      {fmtPct(b.live.capitalGain / b.price, 0)}
-                    </>
-                  ) : "—"}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(annualCoupon(b))}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{ytm === null ? "—" : ytm.toFixed(1)}</td>
-              </tr>
-            );
-          })}
+          {rows.map((r) => (
+            <tr key={r.isin || r.title} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+              <td className="whitespace-nowrap px-4 py-3 font-medium">{r.title}</td>
+              <td className="px-4 py-3 font-mono text-xs text-zinc-500">{r.isin}</td>
+              <td className="whitespace-nowrap px-4 py-3">{r.purchaseDate ?? "—"}</td>
+              <td className="whitespace-nowrap px-4 py-3">{r.timeHeld ?? "—"}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(r.price)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{fmtPct(r.couponRate)}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums"><YieldCell r={r} /></td>
+              <td className="px-4 py-3 text-right tabular-nums"><PVCell r={r} /></td>
+              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums"><GainCell r={r} /></td>
+              <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(r.annualIncome)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{r.yearsLeft === null ? "—" : r.yearsLeft.toFixed(1)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr><td colSpan={11} className="px-4 py-8 text-center text-zinc-500">No holdings match.</td></tr>
+          )}
         </tbody>
       </table>
     </div>

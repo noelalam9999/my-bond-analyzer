@@ -1,7 +1,7 @@
-import { BondTable } from "@/components/BondTable";
+import { Holdings } from "@/components/Holdings";
 import { Stat } from "@/components/Stat";
 import { BB_TBOND_URL, fetchBBQuotes, type BBSnapshot } from "@/lib/bb";
-import { fmtBDT, fmtDate, fmtPct, fmtSigned, priceBonds, summarize, type PricedBond } from "@/lib/bonds";
+import { fmtBDT, fmtDate, fmtPct, fmtSigned, priceBonds, summarize, toRow, type PricedBond } from "@/lib/bonds";
 import { fetchBonds, sheetUrl } from "@/lib/sheet";
 
 // Live BB quotes are fetched on every request.
@@ -17,6 +17,7 @@ export default async function Home() {
   const bonds: PricedBond[] =
     sheetResult.status === "fulfilled" ? priceBonds(sheetResult.value, snapshot.quotes) : [];
   const s = summarize(bonds);
+  const rows = bonds.map((b) => toRow(b));
   const unpriced = s.count - s.pricedCount;
 
   return (
@@ -50,7 +51,7 @@ export default async function Home() {
               Live yields unavailable ({bbError}). Showing sheet data only; present value and capital gain need a live quote.
             </div>
           )}
-          <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Invested" value={fmtBDT(s.invested)} />
             <Stat
               label="Present value"
@@ -64,9 +65,8 @@ export default async function Home() {
               tone={s.pricedCount ? (s.capitalGain >= 0 ? "up" : "down") : undefined}
             />
             <Stat label="Annual coupon income" value={fmtBDT(s.income)} hint={`≈ ${fmtBDT(s.income / 12)} / month`} />
-            <Stat label="Weighted years left" value={s.weightedYears.toFixed(1)} hint={s.longest !== null ? `longest ${s.longest.toFixed(1)} yrs` : undefined} />
           </section>
-          <BondTable bonds={bonds} />
+          <Holdings rows={rows} />
           <p className="mt-3 text-xs text-zinc-500">
             All amounts in BDT. Present value discounts each remaining coupon and the principal at Bangladesh Bank&apos;s market yield (semi-annual
             compounding) and includes accrued coupon; hover a value for the clean price. Capital gain = present value − purchase price.
