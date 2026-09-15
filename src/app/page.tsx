@@ -51,7 +51,7 @@ export default async function Home() {
               Live yields unavailable ({bbError}). Showing sheet data only; present value and capital gain need a live quote.
             </div>
           )}
-          <section className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <Stat label="Invested" value={fmtBDT(s.invested)} />
             <Stat
               label="Present value"
