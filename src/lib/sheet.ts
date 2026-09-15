@@ -55,6 +55,7 @@ export async function fetchBonds(): Promise<Bond[]> {
   const idx = {
     title: col("Bond Title"),
     isin: col("ISIN"),
+    purchaseDate: col("Purchase Date"),
     price: col("Purchase Price"),
     coupon: col("Coupon Rate"),
     yieldCol: col("Current Yield"),
@@ -64,6 +65,7 @@ export async function fetchBonds(): Promise<Bond[]> {
       parseBondRow({
         title: r[idx.title] ?? "",
         isin: r[idx.isin] ?? "",
+        purchaseDate: r[idx.purchaseDate] ?? "",
         price: r[idx.price] ?? "",
         coupon: r[idx.coupon] ?? "",
         currentYield: r[idx.yieldCol] ?? "",

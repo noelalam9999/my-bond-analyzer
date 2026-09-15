@@ -13,7 +13,8 @@ export function BondTable({ bonds }: { bonds: PricedBond[] }) {
           <tr>
             <th className="px-4 py-3">Bond</th>
             <th className="px-4 py-3">ISIN</th>
-            <th className="px-4 py-3 text-right">Purchase (BDT)</th>
+            <th className="px-4 py-3">Purchased</th>
+            <th className="px-4 py-3 text-right">Purchase price</th>
             <th className="px-4 py-3 text-right">Coupon</th>
             <th className="px-4 py-3 text-right">Yield</th>
             <th className="px-4 py-3 text-right">Present value</th>
@@ -31,6 +32,7 @@ export function BondTable({ bonds }: { bonds: PricedBond[] }) {
               <tr key={b.isin || b.title} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
                 <td className="whitespace-nowrap px-4 py-3 font-medium">{b.title}</td>
                 <td className="px-4 py-3 font-mono text-xs text-zinc-500">{b.isin}</td>
+                <td className="whitespace-nowrap px-4 py-3">{b.purchaseDate ? fmtDate(b.purchaseDate) : "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(b.price)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtPct(b.couponRate)}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">

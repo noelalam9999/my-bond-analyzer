@@ -7,7 +7,7 @@ Next.js app that reads bond holdings from a Google Sheet and shows a portfolio s
 
 The sheet must be shared as **Anyone with the link → Viewer**. Expected columns:
 
-`Bond Title | ISIN | Purchase Price (BDT) | Coupon Rate (%) | Current Yield`
+`Bond Title | ISIN | Purchase Date | Purchase Price (BDT) | Coupon Rate (%)`
 
 Bond titles like `15Y BGTB 16/01/2028` are parsed for tenor and maturity date.
 

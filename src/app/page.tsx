@@ -68,9 +68,9 @@ export default async function Home() {
           </section>
           <BondTable bonds={bonds} />
           <p className="mt-3 text-xs text-zinc-500">
-            Present value discounts each remaining coupon and the principal at Bangladesh Bank&apos;s market yield (semi-annual
+            All amounts in BDT. Present value discounts each remaining coupon and the principal at Bangladesh Bank&apos;s market yield (semi-annual
             compounding) and includes accrued coupon; hover a value for the clean price. Capital gain = present value − purchase price.
-            Coupon income assumes BDT 100,000 face value per unit. * = yield derived as coupon ÷ purchase price (no live quote).
+            Coupon income assumes 100,000 face value per unit. * = yield derived as coupon ÷ purchase price (no live quote).
           </p>
         </>
       )}

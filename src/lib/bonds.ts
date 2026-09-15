@@ -4,6 +4,7 @@ import { valueBond } from "./pricing";
 export interface Bond {
   title: string;
   isin: string;
+  purchaseDate: Date | null;
   /** Purchase price in BDT */
   price: number;
   /** Annual coupon rate as a fraction, e.g. 0.122 */
@@ -52,6 +53,17 @@ function parseRate(s: string): number {
   return t.includes("%") || n > 1 ? n / 100 : n;
 }
 
+/** Accepts ISO (2026-08-18), dd/mm/yyyy or dd-mm-yyyy. */
+function parseDate(s: string): Date | null {
+  const t = s.trim();
+  let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  m = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  const d = new Date(t);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /** "15Y BGTB 16/01/2028" → { tenor: 15, maturity: 2028-01-16 } */
 function parseTitle(title: string) {
   const tenor = title.match(/(\d+)\s*Y\b/i);
@@ -63,7 +75,7 @@ function parseTitle(title: string) {
 }
 
 export function parseBondRow(r: {
-  title: string; isin: string; price: string; coupon: string; currentYield: string;
+  title: string; isin: string; purchaseDate: string; price: string; coupon: string; currentYield: string;
 }): Bond | null {
   if (!r.title.trim()) return null;
   const price = parseNumber(r.price);
@@ -73,6 +85,7 @@ export function parseBondRow(r: {
   return {
     title: r.title.trim(),
     isin: r.isin.trim(),
+    purchaseDate: parseDate(r.purchaseDate),
     price,
     couponRate,
     sheetYield: Number.isFinite(cy) ? cy : null,
@@ -134,8 +147,9 @@ export function summarize(bonds: PricedBond[]) {
   };
 }
 
+/** Plain grouped integer, e.g. 1,080,187 — all amounts are BDT. */
 export const fmtBDT = (n: number) =>
-  new Intl.NumberFormat("en-BD", { style: "currency", currency: "BDT", maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(n));
 export const fmtSigned = (n: number) => (n >= 0 ? "+" : "−") + fmtBDT(Math.abs(n));
 export const fmtPct = (n: number, d = 2) => `${(n * 100).toFixed(d)}%`;
 export const fmtDate = (d: Date) =>
