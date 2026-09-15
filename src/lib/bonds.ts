@@ -119,6 +119,20 @@ export function yearsToMaturity(b: Bond, now = new Date()): number | null {
   return (b.maturity.getTime() - now.getTime()) / (365.25 * 24 * 3600 * 1000);
 }
 
+/** Human-friendly holding period since purchase, e.g. "4 mo", "1 yr 2 mo", "12 d". */
+export function timeHeld(b: Bond, now = new Date()): string | null {
+  if (!b.purchaseDate || b.purchaseDate.getTime() > now.getTime()) return null;
+  const from = b.purchaseDate;
+  let months = (now.getUTCFullYear() - from.getUTCFullYear()) * 12 + (now.getUTCMonth() - from.getUTCMonth());
+  if (now.getUTCDate() < from.getUTCDate()) months--;
+  if (months < 1) {
+    const days = Math.floor((now.getTime() - from.getTime()) / 86_400_000);
+    return `${days} d`;
+  }
+  const y = Math.floor(months / 12), m = months % 12;
+  return [y ? `${y} yr` : "", m ? `${m} mo` : ""].filter(Boolean).join(" ");
+}
+
 export function annualCoupon(b: Bond): number {
   return unitsHeld(b) * FACE_VALUE * b.couponRate;
 }

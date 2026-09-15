@@ -1,5 +1,5 @@
 import {
-  annualCoupon, displayYield, fmtBDT, fmtDate, fmtPct, fmtSigned, yearsToMaturity, type PricedBond,
+  annualCoupon, displayYield, fmtBDT, fmtDate, fmtPct, fmtSigned, timeHeld, yearsToMaturity, type PricedBond,
 } from "@/lib/bonds";
 
 const gainClass = (n: number) =>
@@ -14,13 +14,13 @@ export function BondTable({ bonds }: { bonds: PricedBond[] }) {
             <th className="px-4 py-3">Bond</th>
             <th className="px-4 py-3">ISIN</th>
             <th className="px-4 py-3">Purchased</th>
+            <th className="px-4 py-3">Time held</th>
             <th className="px-4 py-3 text-right">Purchase price</th>
             <th className="px-4 py-3 text-right">Coupon</th>
             <th className="px-4 py-3 text-right">Yield</th>
             <th className="px-4 py-3 text-right">Present value</th>
             <th className="px-4 py-3 text-right">Capital gain</th>
             <th className="px-4 py-3 text-right">Annual income</th>
-            <th className="px-4 py-3">Maturity</th>
             <th className="px-4 py-3 text-right">Years left</th>
           </tr>
         </thead>
@@ -33,6 +33,7 @@ export function BondTable({ bonds }: { bonds: PricedBond[] }) {
                 <td className="whitespace-nowrap px-4 py-3 font-medium">{b.title}</td>
                 <td className="px-4 py-3 font-mono text-xs text-zinc-500">{b.isin}</td>
                 <td className="whitespace-nowrap px-4 py-3">{b.purchaseDate ? fmtDate(b.purchaseDate) : "—"}</td>
+                <td className="whitespace-nowrap px-4 py-3">{timeHeld(b) ?? "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(b.price)}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtPct(b.couponRate)}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
@@ -51,11 +52,16 @@ export function BondTable({ bonds }: { bonds: PricedBond[] }) {
                     <span className="text-zinc-400" title="No live quote for this ISIN">—</span>
                   )}
                 </td>
-                <td className={`px-4 py-3 text-right tabular-nums ${b.live ? gainClass(b.live.capitalGain) : "text-zinc-400"}`}>
-                  {b.live ? fmtSigned(b.live.capitalGain) : "—"}
+                <td className={`whitespace-nowrap px-4 py-3 text-right tabular-nums ${b.live ? gainClass(b.live.capitalGain) : "text-zinc-400"}`}>
+                  {b.live ? (
+                    <>
+                      {fmtSigned(b.live.capitalGain)}
+                      <span className="mx-1.5 text-zinc-300 dark:text-zinc-700">|</span>
+                      {fmtPct(b.live.capitalGain / b.price, 0)}
+                    </>
+                  ) : "—"}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtBDT(annualCoupon(b))}</td>
-                <td className="whitespace-nowrap px-4 py-3">{b.maturity ? fmtDate(b.maturity) : "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{ytm === null ? "—" : ytm.toFixed(1)}</td>
               </tr>
             );
