@@ -9,8 +9,8 @@ export interface Bond {
   price: number;
   /** Annual coupon rate as a fraction, e.g. 0.122 */
   couponRate: number;
-  /** Current yield from the sheet (fraction), if filled in */
-  sheetYield: number | null;
+  /** Manually entered current yield (fraction) from the holdings table, if filled in */
+  manualYield: number | null;
   /** Tenor in years parsed from the title, e.g. "15Y" → 15 */
   tenorYears: number | null;
   maturity: Date | null;
@@ -40,56 +40,13 @@ export function unitsHeld(b: Bond): number {
   return Math.round(b.price / FACE_VALUE) || b.price / FACE_VALUE;
 }
 
-function parseNumber(s: string): number {
-  const n = Number(s.replace(/[^0-9.\-]/g, ""));
-  return Number.isFinite(n) ? n : NaN;
-}
-
-/** "12.20%" → 0.122; "0.122" → 0.122 */
-function parseRate(s: string): number {
-  const t = s.trim();
-  if (!t) return NaN;
-  const n = parseNumber(t);
-  return t.includes("%") || n > 1 ? n / 100 : n;
-}
-
-/** Accepts ISO (2026-08-18), dd/mm/yyyy or dd-mm-yyyy. */
-function parseDate(s: string): Date | null {
-  const t = s.trim();
-  let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-  m = t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
-  if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
-  const d = new Date(t);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
 /** "15Y BGTB 16/01/2028" → { tenor: 15, maturity: 2028-01-16 } */
-function parseTitle(title: string) {
+export function parseTitle(title: string) {
   const tenor = title.match(/(\d+)\s*Y\b/i);
   const date = title.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   return {
     tenorYears: tenor ? Number(tenor[1]) : null,
     maturity: date ? new Date(Date.UTC(+date[3], +date[2] - 1, +date[1])) : null,
-  };
-}
-
-export function parseBondRow(r: {
-  title: string; isin: string; purchaseDate: string; price: string; coupon: string; currentYield: string;
-}): Bond | null {
-  if (!r.title.trim()) return null;
-  const price = parseNumber(r.price);
-  const couponRate = parseRate(r.coupon);
-  if (!Number.isFinite(price) || !Number.isFinite(couponRate)) return null;
-  const cy = parseRate(r.currentYield);
-  return {
-    title: r.title.trim(),
-    isin: r.isin.trim(),
-    purchaseDate: parseDate(r.purchaseDate),
-    price,
-    couponRate,
-    sheetYield: Number.isFinite(cy) ? cy : null,
-    ...parseTitle(r.title),
   };
 }
 
@@ -148,7 +105,7 @@ export interface BondRow {
   price: number;
   couponRate: number;
   yieldValue: number;
-  yieldSource: "live" | "sheet" | "derived";
+  yieldSource: "live" | "manual" | "derived";
   presentValue: number | null;
   capitalGain: number | null;
   gainPct: number | null;
@@ -186,10 +143,10 @@ export function annualCoupon(b: Bond): number {
   return unitsHeld(b) * FACE_VALUE * b.couponRate;
 }
 
-/** Yield to show: live market yield, else the sheet's figure, else coupon ÷ purchase price. */
-export function displayYield(b: PricedBond): { value: number; source: "live" | "sheet" | "derived" } {
+/** Yield to show: live market yield, else the manually entered figure, else coupon ÷ purchase price. */
+export function displayYield(b: PricedBond): { value: number; source: "live" | "manual" | "derived" } {
   if (b.live) return { value: b.live.marketYield, source: "live" };
-  if (b.sheetYield !== null) return { value: b.sheetYield, source: "sheet" };
+  if (b.manualYield !== null) return { value: b.manualYield, source: "manual" };
   return { value: annualCoupon(b) / b.price, source: "derived" };
 }
 
