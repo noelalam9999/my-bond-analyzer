@@ -114,9 +114,10 @@ export interface BondRow {
   annualIncome: number;
   maturity: string | null;
   yearsLeft: number | null;
+  couponCalendar: CouponCalendar;
 }
 
-export function toRow(b: PricedBond, now = new Date()): BondRow {
+export function toRow(b: PricedBond, now = new Date(), quote?: BBQuote): BondRow {
   const y = displayYield(b);
   return {
     title: b.title,
@@ -136,6 +137,7 @@ export function toRow(b: PricedBond, now = new Date()): BondRow {
     annualIncome: annualCoupon(b),
     maturity: b.maturity ? fmtDate(b.maturity) : null,
     yearsLeft: yearsToMaturity(b, now),
+    couponCalendar: couponCalendar(b, quote, now),
   };
 }
 
@@ -166,3 +168,34 @@ export const fmtSigned = (n: number) => (n >= 0 ? "+" : "−") + fmtBDT(Math.abs
 export const fmtPct = (n: number, d = 2) => `${(n * 100).toFixed(d)}%`;
 export const fmtDate = (d: Date) =>
   d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+
+
+export interface CouponCalendar {
+  source: "quote" | "estimated" | "unavailable";
+  payments: { date: string; coupon: number; principal: number }[];
+}
+
+/** Anchor each date independently so month ends never drift after February. */
+export function couponCalendar(b: Bond, quote?: BBQuote, now = new Date()): CouponCalendar {
+  const maturity = quote?.maturity ?? b.maturity;
+  if (!maturity || !Number.isFinite(maturity.getTime())) return { source: "unavailable", payments: [] };
+  const frequency = quote?.couponsPerYear ?? 2;
+  if (frequency <= 0 || !Number.isInteger(12 / frequency)) return { source: "unavailable", payments: [] };
+  const quoted = !!quote?.nextCoupon;
+  const anchor = quoted ? quote!.nextCoupon! : maturity;
+  const step = 12 / frequency;
+  const today = Date.parse(now.toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" }) + "T00:00:00Z");
+  const payments: CouponCalendar["payments"] = [];
+  for (let i = 0; i < 1200; i++) {
+    const month = anchor.getUTCMonth() + (quoted ? i : -i) * step;
+    const lastDay = new Date(Date.UTC(anchor.getUTCFullYear(), month + 1, 0)).getUTCDate();
+    const date = new Date(Date.UTC(anchor.getUTCFullYear(), month, Math.min(anchor.getUTCDate(), lastDay)));
+    if (quoted && date > maturity) break;
+    if (!quoted && date.getTime() < today) break;
+    if (date.getTime() < today) continue;
+    payments.push({ date: date.toISOString().slice(0, 10), coupon: annualCoupon(b) / frequency,
+      principal: date.getTime() === maturity.getTime() ? unitsHeld(b) * FACE_VALUE : 0 });
+  }
+  payments.sort((a, b) => a.date.localeCompare(b.date));
+  return { source: quoted ? "quote" : "estimated", payments };
+}
