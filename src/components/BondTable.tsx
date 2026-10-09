@@ -35,7 +35,7 @@ export function PVCell({ r }: { r: BondRow }) {
   );
 }
 
-export function BondTable({ rows }: { rows: BondRow[] }) {
+export function BondTable({ rows, onSelect }: { rows: BondRow[]; onSelect: (bond: BondRow) => void }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
       <table className="min-w-full text-sm">
@@ -56,8 +56,8 @@ export function BondTable({ rows }: { rows: BondRow[] }) {
         </thead>
         <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
           {rows.map((r) => (
-            <tr key={r.isin || r.title} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
-              <td className="whitespace-nowrap px-4 py-3 font-medium">{r.title}</td>
+            <tr key={r.isin || r.title} onClick={() => onSelect(r)} className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+              <td className="whitespace-nowrap px-4 py-3 font-medium"><button type="button" onClick={(e) => { e.stopPropagation(); onSelect(r); }} className="text-left underline decoration-zinc-300 underline-offset-4" aria-label={`View coupon calendar for ${r.title}`}>{r.title}</button></td>
               <td className="px-4 py-3 font-mono text-xs text-zinc-500">{r.isin}</td>
               <td className="whitespace-nowrap px-4 py-3">{r.purchaseDate ?? "—"}</td>
               <td className="whitespace-nowrap px-4 py-3">{r.timeHeld ?? "—"}</td>

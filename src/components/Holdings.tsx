@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { BondRow } from "@/lib/bonds";
 import { BondCards } from "./BondCards";
 import { BondTable } from "./BondTable";
+import { CouponCalendarDialog } from "./CouponCalendarDialog";
 import { RangeSlider } from "./RangeSlider";
 
 type NumKey = "yearsLeft" | "gainPct" | "yieldValue" | "daysHeld" | "price";
@@ -39,6 +40,7 @@ const floorTo = (n: number, s: number) => tidy(Math.floor(n / s + 1e-9) * s);
 const ceilTo = (n: number, s: number) => tidy(Math.ceil(n / s - 1e-9) * s);
 
 export function Holdings({ rows }: { rows: BondRow[] }) {
+  const [selectedBond, setSelectedBond] = useState<BondRow | null>(null);
   const [q, setQ] = useState("");
   const [ranges, setRanges] = useState<Ranges>({});
   const [sortKey, setSortKey] = useState<SortKey>("title");
@@ -150,8 +152,9 @@ export function Holdings({ rows }: { rows: BondRow[] }) {
         </div>
       )}
 
-      <div className="md:hidden"><BondCards rows={visible} /></div>
-      <div className="hidden md:block"><BondTable rows={visible} /></div>
+      <div className="md:hidden"><BondCards rows={visible} onSelect={setSelectedBond} /></div>
+      <div className="hidden md:block"><BondTable rows={visible} onSelect={setSelectedBond} /></div>
+      <CouponCalendarDialog bond={selectedBond} onClose={() => setSelectedBond(null)} />
     </section>
   );
 }
