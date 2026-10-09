@@ -34,7 +34,7 @@ export default async function Home() {
   const bonds: PricedBond[] =
     holdingsResult.status === "fulfilled" ? priceBonds(holdingsResult.value, snapshot.quotes) : [];
   const s = summarize(bonds);
-  const rows = bonds.map((b) => toRow(b));
+  const rows = bonds.map((b) => toRow(b, new Date(), snapshot.quotes.get(b.isin)));
   const unpriced = s.count - s.pricedCount;
 
   return (
